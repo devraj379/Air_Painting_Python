@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Air Painting Studio</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Top Header -->
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-icon" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 19l7-7 3 3-7 7-3-3z"></path>
+            <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path>
+            <path d="M2 2l7.586 7.586"></path>
+            <circle cx="11" cy="11" r="2"></circle>
+          </svg>
+        </div>
+        <div>
+          <h1>Air Painting Studio</h1>
+          <p class="subtitle">Real-time hand-tracking canvas powered by Python MediaPipe &amp; OpenCV</p>
+        </div>
+      </div>
+
+      <div class="header-status">
+        <div id="connectionBadge" class="badge badge-neutral">
+          <span class="dot"></span>
+          <span id="connectionText">Connecting…</span>
+        </div>
+        <div id="gestureBadge" class="badge badge-neutral">
+          <span id="gestureText">Camera Off</span>
+        </div>
+        <div class="metric-pill" title="Tracking Frames Per Second">
+          <span class="metric-label">FPS</span>
+          <span id="fpsValue">0</span>
+        </div>
+        <div class="metric-pill" title="Vertical distance: thumb_y - index_y">
+          <span class="metric-label">ΔY</span>
+          <span id="deltaYValue">—</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Control Ribbon -->
+    <section class="toolbar" aria-label="Painting Tools">
+      <div class="toolbar-group">
+        <button id="toggleCameraBtn" class="btn btn-primary">
+          <span id="cameraBtnIcon">▶</span>
+          <span id="cameraBtnLabel">Start Camera</span>
+        </button>
+
+        <div class="segmented" role="group" aria-label="View Mode">
+          <button class="seg-btn active" data-view="split" title="Side-by-side Camera and Paint Canvas">Split</button>
+          <button class="seg-btn" data-view="overlay" title="Paint directly over webcam feed">AR Overlay</button>
+          <button class="seg-btn" data-view="canvas" title="Focus on Paint Canvas">Canvas</button>
+        </div>
+      </div>
+
+      <div class="toolbar-group">
+        <span class="group-label">Palette</span>
+        <div class="swatches" id="swatchList">
+          <button class="swatch active" data-color="#2563eb" data-name="Blue" style="--swatch:#2563eb" title="Blue"></button>
+          <button class="swatch" data-color="#16a34a" data-name="Green" style="--swatch:#16a34a" title="Green"></button>
+          <button class="swatch" data-color="#dc2626" data-name="Red" style="--swatch:#dc2626" title="Red"></button>
+          <button class="swatch" data-color="#eab308" data-name="Yellow" style="--swatch:#eab308" title="Yellow"></button>
+          <button class="swatch" data-color="#9333ea" data-name="Purple" style="--swatch:#9333ea" title="Purple"></button>
+          <button class="swatch" data-color="#ea580c" data-name="Orange" style="--swatch:#ea580c" title="Orange"></button>
+          <button class="swatch" data-color="#111827" data-name="Black" style="--swatch:#111827" title="Black"></button>
+          <label class="color-picker-wrap" title="Custom Color">
+            <input type="color" id="customColorPicker" value="#2563eb" />
+            <span>+</span>
+          </label>
+        </div>
+        <button id="eraserBtn" class="btn btn-ghost" title="Toggle Eraser">Eraser</button>
+      </div>
+
+      <div class="toolbar-group">
+        <label class="slider-control" for="brushSize">
+          <span>Size <strong id="brushSizeVal">6</strong>px</span>
+          <input id="brushSize" type="range" min="2" max="32" value="6" />
+        </label>
+
+        <button id="undoBtn" class="btn btn-ghost" title="Undo last stroke (Ctrl+Z)">Undo</button>
+        <button id="clearBtn" class="btn btn-danger-ghost" title="Clear Canvas">Clear</button>
+        <button id="downloadBtn" class="btn btn-secondary" title="Download painting as PNG">Save PNG</button>
+      </div>
+    </section>
+
+    <!-- Workspace Stage -->
+    <main class="stage mode-split" id="stage">
+      <!-- Camera Panel -->
+      <div class="panel camera-panel" id="cameraPanel">
+        <div class="panel-header">
+          <span class="panel-title">Hand Tracker (Output)</span>
+          <div class="panel-controls">
+            <label class="toggle-inline">
+              <input type="checkbox" id="showSkeleton" checked />
+              <span>Skeleton</span>
+            </label>
+            <label class="toggle-inline">
+              <input type="checkbox" id="showAirBar" checked />
+              <span>Air Toolbar</span>
+            </label>
+          </div>
+        </div>
+        <div class="canvas-wrap">
+          <video id="webcamVideo" playsinline muted autoplay hidden></video>
+          <canvas id="cameraCanvas" width="640" height="480"></canvas>
+          <div id="cameraPlaceholder" class="placeholder">
+            <div class="placeholder-inner">
+              <div class="placeholder-icon">✋</div>
+              <h2>Camera is paused</h2>
+              <p>Click <strong>Start Camera</strong> to paint in mid-air with your index finger, or draw directly on the Paint canvas with your mouse.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Paint Panel -->
+      <div class="panel paint-panel" id="paintPanel">
+        <div class="panel-header">
+          <span class="panel-title">Canvas (Paint)</span>
+          <div class="panel-controls">
+            <label class="toggle-inline">
+              <input type="checkbox" id="darkCanvasToggle" />
+              <span>Dark Canvas</span>
+            </label>
+          </div>
+        </div>
+        <div class="canvas-wrap">
+          <canvas id="arBgCanvas" width="640" height="480"></canvas>
+          <canvas id="paintCanvas" width="640" height="480"></canvas>
+          <canvas id="cursorCanvas" width="640" height="480"></canvas>
+        </div>
+      </div>
+    </main>
+
+    <!-- Calibration & Gesture Guide Footer -->
+    <footer class="bottom-bar">
+      <div class="calibration-controls">
+        <label class="slider-control" for="pinchThreshold">
+          <span>Pinch Lift Threshold: <strong id="pinchThresholdVal">30</strong>px</span>
+          <input id="pinchThreshold" type="range" min="10" max="70" value="30" />
+        </label>
+        <label class="toggle-inline">
+          <input type="checkbox" id="smoothToggle" checked />
+          <span>Smooth Strokes</span>
+        </label>
+        <label class="toggle-inline">
+          <input type="checkbox" id="mouseDrawToggle" checked />
+          <span>Allow Mouse/Touch Draw</span>
+        </label>
+      </div>
+
+      <div class="gesture-guide">
+        <span><strong>Draw:</strong> Raise index finger, thumb lower than fingertip</span>
+        <span><strong>Lift Pen:</strong> Pinch thumb &amp; index finger together (ΔY &lt; threshold)</span>
+        <span><strong>Air Select:</strong> Hover index finger over top bar (CLEAR / Colors)</span>
+      </div>
+    </footer>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

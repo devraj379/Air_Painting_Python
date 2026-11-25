@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.git/
+*.bat
+AIR_PAINTING.py

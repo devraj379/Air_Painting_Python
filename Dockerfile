@@ -1,5 +1,16 @@
 FROM python:3.12-slim
 
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libxcb1 \
+    libglib2.0-0 \
+    libgl1 \
+    libsm6 \
+    libxext6 \
+    libxrender1 \
+    && rm -rf /var/lib/apt/lists/*
+
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     TF_ENABLE_ONEDNN_OPTS=0 \

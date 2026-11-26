@@ -53,6 +53,15 @@
   const undoBtn = document.getElementById('undoBtn');
   const clearBtn = document.getElementById('clearBtn');
   const downloadBtn = document.getElementById('downloadBtn');
+  const beautifyBtn = document.getElementById('beautifyBtn');
+  const autoShapeToggle = document.getElementById('autoShapeToggle');
+  const aiGuessBtn = document.getElementById('aiGuessBtn');
+  const aiGuessText = document.getElementById('aiGuessText');
+  const aiConfidenceText = document.getElementById('aiConfidenceText');
+  const aiTipText = document.getElementById('aiTipText');
+  const challengeTarget = document.getElementById('challengeTarget');
+  const challengeStatus = document.getElementById('challengeStatus');
+  const nextChallengeBtn = document.getElementById('nextChallengeBtn');
 
   const segButtons = Array.from(document.querySelectorAll('.seg-btn'));
   const showSkeletonToggle = document.getElementById('showSkeleton');
@@ -63,11 +72,19 @@
   const smoothToggle = document.getElementById('smoothToggle');
   const mouseDrawToggle = document.getElementById('mouseDrawToggle');
 
-  // Offscreen canvas for sending mirrored JPEG frames to backend
+  // Offscreen canvas for sending mirrored low-latency JPEG frames to backend
+  const CAPTURE_WIDTH = 320;
+  const CAPTURE_HEIGHT = 240;
   const captureCanvas = document.createElement('canvas');
-  captureCanvas.width = WIDTH;
-  captureCanvas.height = HEIGHT;
-  const captureCtx = captureCanvas.getContext('2d');
+  captureCanvas.width = CAPTURE_WIDTH;
+  captureCanvas.height = CAPTURE_HEIGHT;
+  const captureCtx = captureCanvas.getContext('2d', { alpha: false });
+
+  // Offscreen cache for committed strokes so per-frame rendering stays O(1)
+  const committedCanvas = document.createElement('canvas');
+  committedCanvas.width = WIDTH;
+  committedCanvas.height = HEIGHT;
+  const committedCtx = committedCanvas.getContext('2d');
 
   // Application State
   const state = {
@@ -91,19 +108,25 @@
     hoverTriggered: false,
     fpsFrames: 0,
     fpsLastUpdate: performance.now(),
-    rafId: null
+    rafId: null,
+    aiChallenges: ['House', 'Smiley Face', 'Star', 'Heart', 'Sun', 'Triangle', 'Circle', 'Square'],
+    challengeIndex: 0,
+    analyzeTimer: null
   };
 
   // --- Painting Engine ---
+  function rebuildCommittedCanvas() {
+    committedCtx.clearRect(0, 0, WIDTH, HEIGHT);
+    for (const stroke of state.strokes) {
+      drawSingleStroke(committedCtx, stroke);
+    }
+  }
+
   function renderStrokes() {
     paintCtx.clearRect(0, 0, WIDTH, HEIGHT);
-    const allStrokes = [...state.strokes];
-    if (state.currentAirStroke) allStrokes.push(state.currentAirStroke);
-    if (state.currentMouseStroke) allStrokes.push(state.currentMouseStroke);
-
-    for (const stroke of allStrokes) {
-      drawSingleStroke(paintCtx, stroke);
-    }
+    paintCtx.drawImage(committedCanvas, 0, 0);
+    if (state.currentAirStroke) drawSingleStroke(paintCtx, state.currentAirStroke);
+    if (state.currentMouseStroke) drawSingleStroke(paintCtx, state.currentMouseStroke);
   }
 
   function drawSingleStroke(ctx, stroke) {
@@ -147,22 +170,113 @@
 
   function finishAirStroke() {
     if (state.currentAirStroke && state.currentAirStroke.points.length > 0) {
-      state.strokes.push(state.currentAirStroke);
+      const stroke = state.currentAirStroke;
+      state.strokes.push(stroke);
+      drawSingleStroke(committedCtx, stroke);
+      onStrokeCompleted(stroke);
     }
     state.currentAirStroke = null;
+    renderStrokes();
   }
 
   function clearCanvas() {
     state.strokes = [];
     state.currentAirStroke = null;
     state.currentMouseStroke = null;
+    rebuildCommittedCanvas();
     renderStrokes();
+    scheduleAIAnalysis(50);
   }
 
   function undoLastStroke() {
     if (state.strokes.length > 0) {
       state.strokes.pop();
+      rebuildCommittedCanvas();
       renderStrokes();
+      scheduleAIAnalysis(50);
+    }
+  }
+
+  // --- AI Shape Beautifier & Doodle Guesser ---
+  function onStrokeCompleted(stroke) {
+    if (autoShapeToggle.checked && !stroke.isEraser && stroke.points.length >= 4) {
+      beautifyStrokeObject(stroke, true);
+    } else {
+      scheduleAIAnalysis(280);
+    }
+  }
+
+  async function beautifyStrokeObject(targetStroke, autoOnly) {
+    if (!targetStroke || targetStroke.isEraser || targetStroke.points.length < 2) return;
+    try {
+      const res = await fetch('/api/ai/beautify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ points: targetStroke.points })
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      const isGeometric = data.shape && data.shape !== 'Freehand' && data.shape !== 'Dot';
+      if (autoOnly && (!isGeometric || data.confidence < 0.72)) {
+        scheduleAIAnalysis(250);
+        return;
+      }
+      if (Array.isArray(data.beautified_points) && data.beautified_points.length >= 2) {
+        targetStroke.points = data.beautified_points;
+        rebuildCommittedCanvas();
+        renderStrokes();
+        aiGuessText.textContent = `Snapped: ${data.shape}`;
+        aiConfidenceText.textContent = `${Math.round((data.confidence || 0) * 100)}%`;
+      }
+    } catch (err) {
+      console.error('AI beautify error:', err);
+    } finally {
+      scheduleAIAnalysis(200);
+    }
+  }
+
+  function beautifyLastStroke() {
+    for (let i = state.strokes.length - 1; i >= 0; i--) {
+      if (!state.strokes[i].isEraser && state.strokes[i].points.length >= 2) {
+        beautifyStrokeObject(state.strokes[i], false);
+        return;
+      }
+    }
+  }
+
+  function scheduleAIAnalysis(delayMs = 250) {
+    if (state.analyzeTimer) clearTimeout(state.analyzeTimer);
+    state.analyzeTimer = setTimeout(() => {
+      analyzeCanvasWithAI();
+    }, delayMs);
+  }
+
+  async function analyzeCanvasWithAI() {
+    const activeChallenge = state.aiChallenges[state.challengeIndex];
+    try {
+      const res = await fetch('/api/ai/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          strokes: state.strokes,
+          target_challenge: activeChallenge
+        })
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      aiGuessText.textContent = data.guess || 'Unknown';
+      aiConfidenceText.textContent = data.guess === 'Blank Canvas' ? '' : `${data.confidence}%`;
+      aiTipText.textContent = data.tip || '';
+
+      if (data.challenge_match) {
+        challengeStatus.textContent = 'Matched!';
+        challengeStatus.classList.add('matched');
+      } else {
+        challengeStatus.textContent = 'In progress';
+        challengeStatus.classList.remove('matched');
+      }
+    } catch (err) {
+      console.error('AI analyze error:', err);
     }
   }
 
@@ -211,6 +325,7 @@
     ws.onopen = () => {
       state.awaitingResponse = false;
       setConnectionStatus('badge-ok', 'Python MediaPipe Ready');
+      sendTrackingFrame();
     };
 
     ws.onmessage = (event) => {
@@ -220,6 +335,9 @@
         handleTrackingResult(data);
       } catch (err) {
         console.error('Invalid tracking payload:', err);
+      }
+      if (state.cameraRunning) {
+        sendTrackingFrame();
       }
     };
 
@@ -276,10 +394,11 @@
     const deltaY = Math.round(rawThumb[1] - rawIndex[1]);
     deltaYValue.textContent = `${deltaY}px`;
 
-    // Smooth index tip to reduce webcam jitter
+    // Smooth index tip adaptively (snappy on fast moves, steady on fine detail)
     let pt;
     if (smoothToggle.checked && state.smoothedPoint) {
-      const alpha = 0.45;
+      const speed = Math.hypot(rawIndex[0] - state.smoothedPoint.x, rawIndex[1] - state.smoothedPoint.y);
+      const alpha = speed > 18 ? 0.78 : 0.48;
       pt = {
         x: state.smoothedPoint.x + alpha * (rawIndex[0] - state.smoothedPoint.x),
         y: state.smoothedPoint.y + alpha * (rawIndex[1] - state.smoothedPoint.y)
@@ -427,14 +546,7 @@
     ctx.restore();
 
     if (includeStrokes) {
-      const allStrokes = [...state.strokes];
-      if (state.currentAirStroke) allStrokes.push(state.currentAirStroke);
-      if (state.currentMouseStroke) allStrokes.push(state.currentMouseStroke);
-      for (const stroke of allStrokes) {
-        if (!stroke.isEraser) {
-          drawSingleStroke(ctx, stroke);
-        }
-      }
+      ctx.drawImage(paintCanvas, 0, 0, WIDTH, HEIGHT);
     }
 
     if (showAirBarToggle.checked) {
@@ -546,17 +658,46 @@
     ctx.closePath();
   }
 
+  function sendTrackingFrame() {
+    if (
+      !state.cameraRunning ||
+      video.readyState < 2 ||
+      !state.ws ||
+      state.ws.readyState !== WebSocket.OPEN
+    ) {
+      return;
+    }
+    const now = performance.now();
+    if (state.awaitingResponse && now - state.lastSendTime < 1500) {
+      return;
+    }
+
+    state.awaitingResponse = true;
+    state.lastSendTime = now;
+
+    captureCtx.save();
+    captureCtx.translate(CAPTURE_WIDTH, 0);
+    captureCtx.scale(-1, 1);
+    captureCtx.drawImage(video, 0, 0, CAPTURE_WIDTH, CAPTURE_HEIGHT);
+    captureCtx.restore();
+
+    captureCanvas.toBlob(
+      (blob) => {
+        if (blob && state.ws && state.ws.readyState === WebSocket.OPEN) {
+          state.ws.send(blob);
+        } else {
+          state.awaitingResponse = false;
+        }
+      },
+      'image/jpeg',
+      0.55
+    );
+  }
+
   function loop() {
     if (!state.cameraRunning) return;
 
     if (video.readyState >= 2) {
-      // Capture mirrored frame for backend tracking
-      captureCtx.save();
-      captureCtx.translate(WIDTH, 0);
-      captureCtx.scale(-1, 1);
-      captureCtx.drawImage(video, 0, 0, WIDTH, HEIGHT);
-      captureCtx.restore();
-
       if (state.viewMode === 'split') {
         drawCameraOverlay(cameraCtx, true);
       } else if (state.viewMode === 'overlay') {
@@ -564,26 +705,8 @@
       }
       drawPaintCursor();
 
-      const now = performance.now();
-      if (
-        state.ws &&
-        state.ws.readyState === WebSocket.OPEN &&
-        !state.awaitingResponse &&
-        now - state.lastSendTime >= 30
-      ) {
-        state.awaitingResponse = true;
-        state.lastSendTime = now;
-        captureCanvas.toBlob(
-          (blob) => {
-            if (blob && state.ws && state.ws.readyState === WebSocket.OPEN) {
-              state.ws.send(blob);
-            } else {
-              state.awaitingResponse = false;
-            }
-          },
-          'image/jpeg',
-          0.72
-        );
+      if (!state.awaitingResponse) {
+        sendTrackingFrame();
       }
     }
 
@@ -623,9 +746,13 @@
 
   function endMouseStroke() {
     if (state.currentMouseStroke && state.currentMouseStroke.points.length > 0) {
-      state.strokes.push(state.currentMouseStroke);
+      const stroke = state.currentMouseStroke;
+      state.strokes.push(stroke);
+      drawSingleStroke(committedCtx, stroke);
+      onStrokeCompleted(stroke);
     }
     state.currentMouseStroke = null;
+    renderStrokes();
   }
 
   paintCanvas.addEventListener('pointerup', endMouseStroke);
@@ -696,6 +823,13 @@
   undoBtn.addEventListener('click', undoLastStroke);
   clearBtn.addEventListener('click', clearCanvas);
   downloadBtn.addEventListener('click', downloadPng);
+  beautifyBtn.addEventListener('click', beautifyLastStroke);
+  aiGuessBtn.addEventListener('click', analyzeCanvasWithAI);
+  nextChallengeBtn.addEventListener('click', () => {
+    state.challengeIndex = (state.challengeIndex + 1) % state.aiChallenges.length;
+    challengeTarget.textContent = state.aiChallenges[state.challengeIndex];
+    analyzeCanvasWithAI();
+  });
 
   window.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {

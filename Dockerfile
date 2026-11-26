@@ -26,7 +26,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY air_tracker.py server.py ./
+COPY ai_assistant.py air_tracker.py server.py ./
 COPY static ./static
 
 EXPOSE 8000

@@ -54,15 +54,14 @@ body {
   gap: 12px;
 }
 
-.brand-icon {
-  width: 40px;
-  height: 40px;
+.brand-logo {
+  width: 44px;
+  height: 44px;
   border-radius: 10px;
-  background: linear-gradient(135deg, #2563eb, #7c3aed);
-  display: grid;
-  place-items: center;
-  color: #fff;
+  object-fit: cover;
+  border: 1px solid var(--border);
   flex-shrink: 0;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25);
 }
 
 .brand h1 {
@@ -107,21 +106,30 @@ body {
   background: rgba(34, 197, 94, 0.12);
   color: #86efac;
 }
-.badge-ok .dot { background: var(--success); }
+
+.badge-ok .dot {
+  background: var(--success);
+}
 
 .badge-warn {
   border-color: rgba(245, 158, 11, 0.35);
   background: rgba(245, 158, 11, 0.12);
   color: #fde68a;
 }
-.badge-warn .dot { background: var(--warning); }
+
+.badge-warn .dot {
+  background: var(--warning);
+}
 
 .badge-err {
   border-color: rgba(239, 68, 68, 0.35);
   background: rgba(239, 68, 68, 0.12);
   color: #fca5a5;
 }
-.badge-err .dot { background: var(--danger); }
+
+.badge-err .dot {
+  background: var(--danger);
+}
 
 .badge-draw {
   border-color: rgba(59, 130, 246, 0.45);
@@ -190,25 +198,37 @@ body {
   background: var(--surface-2);
 }
 
-.btn:active { transform: translateY(1px); }
+.btn:active {
+  transform: translateY(1px);
+}
 
 .btn-primary {
   background: var(--primary);
   color: #fff;
 }
-.btn-primary:hover { background: var(--primary-hover); }
+
+.btn-primary:hover {
+  background: var(--primary-hover);
+}
 
 .btn-secondary {
   background: #1e293b;
   border-color: #334155;
 }
-.btn-secondary:hover { background: #293548; }
+
+.btn-secondary:hover {
+  background: #293548;
+}
 
 .btn-ghost {
   background: transparent;
   border-color: var(--border);
 }
-.btn-ghost:hover { background: var(--surface-2); }
+
+.btn-ghost:hover {
+  background: var(--surface-2);
+}
+
 .btn-ghost.active {
   background: rgba(59, 130, 246, 0.2);
   border-color: var(--primary);
@@ -220,8 +240,103 @@ body {
   border-color: rgba(239, 68, 68, 0.35);
   color: #fca5a5;
 }
+
 .btn-danger-ghost:hover {
   background: rgba(239, 68, 68, 0.14);
+}
+
+.btn-ai {
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.25), rgba(37, 99, 235, 0.25));
+  border-color: rgba(139, 92, 246, 0.55);
+  color: #ddd6fe;
+}
+
+.btn-ai:hover {
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.4), rgba(37, 99, 235, 0.4));
+}
+
+.btn-sm {
+  padding: 5px 10px;
+  font-size: 0.78rem;
+}
+
+.ai-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 14px;
+  background: linear-gradient(90deg, rgba(30, 41, 59, 0.9), rgba(18, 24, 38, 0.95));
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  border-radius: var(--radius);
+}
+
+.ai-bar-left,
+.ai-bar-right {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.ai-pill {
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: linear-gradient(135deg, #7c3aed, #2563eb);
+  color: #fff;
+}
+
+.ai-readout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 0.84rem;
+}
+
+.ai-conf {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: #a78bfa;
+}
+
+.ai-tip {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.challenge-box {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  font-size: 0.78rem;
+}
+
+.challenge-label {
+  color: var(--text-muted);
+}
+
+.challenge-status {
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: var(--surface-2);
+  color: var(--text-muted);
+}
+
+.challenge-status.matched {
+  background: rgba(34, 197, 94, 0.18);
+  color: #86efac;
 }
 
 .segmented {
@@ -265,7 +380,9 @@ body {
   transition: transform 0.12s, box-shadow 0.12s;
 }
 
-.swatch:hover { transform: scale(1.08); }
+.swatch:hover {
+  transform: scale(1.08);
+}
 
 .swatch.active {
   border-color: #fff;

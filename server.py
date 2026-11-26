@@ -7,7 +7,9 @@ from pathlib import Path
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
+from ai_assistant import analyze_canvas, beautify_stroke
 from air_tracker import AirHandTracker
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -23,10 +25,31 @@ async def serve_index() -> FileResponse:
     return FileResponse(STATIC_DIR / "index.html")
 
 
+class BeautifyRequest(BaseModel):
+    points: list[dict[str, float]]
+
+
+class AnalyzeRequest(BaseModel):
+    strokes: list[dict]
+    target_challenge: str | None = None
+
+
 @app.get("/api/health")
 async def health_check() -> dict:
     """Report server readiness."""
     return {"status": "ok", "engine": "mediapipe"}
+
+
+@app.post("/api/ai/beautify")
+async def ai_beautify_stroke(payload: BeautifyRequest) -> dict:
+    """Classify and beautify a single hand-drawn stroke."""
+    return beautify_stroke(payload.points)
+
+
+@app.post("/api/ai/analyze")
+async def ai_analyze_canvas(payload: AnalyzeRequest) -> dict:
+    """Recognize shapes and composite doodles on the canvas."""
+    return analyze_canvas(payload.strokes, payload.target_challenge)
 
 
 @app.websocket("/ws/track")

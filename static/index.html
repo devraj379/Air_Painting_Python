@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Air Painting Studio</title>
+  <link rel="icon" type="image/png" href="/static/logo.png" />
   <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
@@ -11,17 +12,10 @@
     <!-- Top Header -->
     <header class="topbar">
       <div class="brand">
-        <div class="brand-icon" aria-hidden="true">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 19l7-7 3 3-7 7-3-3z"></path>
-            <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path>
-            <path d="M2 2l7.586 7.586"></path>
-            <circle cx="11" cy="11" r="2"></circle>
-          </svg>
-        </div>
+        <img src="/static/logo.png" alt="Air Painting Studio Logo" class="brand-logo" />
         <div>
           <h1>Air Painting Studio</h1>
-          <p class="subtitle">Real-time hand-tracking canvas powered by Python MediaPipe &amp; OpenCV</p>
+          <p class="subtitle">Real-time hand-tracking &amp; AI shape studio powered by MediaPipe &amp; OpenCV</p>
         </div>
       </div>
 
@@ -83,9 +77,35 @@
           <input id="brushSize" type="range" min="2" max="32" value="6" />
         </label>
 
+        <button id="beautifyBtn" class="btn btn-ai" title="Snap or smooth the last stroke using AI">✨ Beautify Last</button>
+        <label class="toggle-inline ai-toggle" title="Automatically snap geometric shapes as you finish each stroke">
+          <input type="checkbox" id="autoShapeToggle" />
+          <span>AI Auto-Shape</span>
+        </label>
         <button id="undoBtn" class="btn btn-ghost" title="Undo last stroke (Ctrl+Z)">Undo</button>
         <button id="clearBtn" class="btn btn-danger-ghost" title="Clear Canvas">Clear</button>
         <button id="downloadBtn" class="btn btn-secondary" title="Download painting as PNG">Save PNG</button>
+      </div>
+    </section>
+
+    <!-- AI Studio Assistant Bar -->
+    <section class="ai-bar" aria-label="AI Sketch Assistant">
+      <div class="ai-bar-left">
+        <span class="ai-pill">AI Vision</span>
+        <div class="ai-readout">
+          <strong id="aiGuessText">Blank Canvas</strong>
+          <span id="aiConfidenceText" class="ai-conf"></span>
+          <span id="aiTipText" class="ai-tip">Draw a Circle, Triangle, Square, Star, Heart, House, or Smiley Face!</span>
+        </div>
+      </div>
+      <div class="ai-bar-right">
+        <div class="challenge-box">
+          <span class="challenge-label">Challenge:</span>
+          <strong id="challengeTarget">House</strong>
+          <span id="challengeStatus" class="challenge-status">In progress</span>
+          <button id="nextChallengeBtn" class="btn btn-ghost btn-sm" title="Pick a new drawing challenge">New</button>
+        </div>
+        <button id="aiGuessBtn" class="btn btn-secondary btn-sm" title="Analyze canvas with AI now">Analyze</button>
       </div>
     </section>
 

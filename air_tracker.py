@@ -21,13 +21,15 @@ class AirHandTracker:
 
     def __init__(
         self,
-        min_detection_confidence: float = 0.7,
-        min_tracking_confidence: float = 0.6,
+        min_detection_confidence: float = 0.6,
+        min_tracking_confidence: float = 0.5,
+        model_complexity: int = 0,
     ) -> None:
         self._mp_hands = mp.solutions.hands
         self._hands = self._mp_hands.Hands(
             static_image_mode=False,
             max_num_hands=1,
+            model_complexity=model_complexity,
             min_detection_confidence=min_detection_confidence,
             min_tracking_confidence=min_tracking_confidence,
         )
